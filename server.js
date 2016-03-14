@@ -53,10 +53,38 @@ app.delete('/todos/:id', function (req, res) {
     if (!matchTodo) {
         return res.status(404).json({"error": "item not existed"});
     }
-    todos =_.without(todos, matchTodo);
+    todos = _.without(todos, matchTodo);
     res.json(matchTodo);
 
 
+});
+
+app.put('/todos/:id', function (req, res) {
+    console.log('put put');
+    var body = _.pick(req.body, 'description', 'completed');
+    var validAttributes = {};
+    var todoId = parseInt(req.params.id, 10);
+    console.log(todoId);
+    var matchTodo = _.findWhere(todos, {id: todoId});
+    if (!matchTodo) {
+        return res.status(404).send();
+    }
+    if (body.hasOwnProperty('completed') && _.isBoolean(body.completed)) {
+        validAttributes.completed = body.completed;
+    }
+    else if (body.hasOwnProperty('completed')) {
+        return res.status(400).send();
+    }
+
+    if (body.hasOwnProperty('description') && _.isString(body.description) && body.description.trim().length) {
+        validAttributes.description = body.description;
+    }
+    else if (body.hasOwnProperty('description')) {
+        return res.status(400).send();
+    }
+
+    _.extend(matchTodo, validAttributes);
+    res.json(matchTodo);
 });
 
 app.listen(PORT, function () {
