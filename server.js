@@ -5,33 +5,22 @@
 var express = require('express');
 var app = express();
 var _ = require('lodash');
+var bodyParser = require('body-parser');
 var PORT = process.env.PORT || 3000;
 
-var todos = [
-    {
-        id: 1,
-        description: 'Meeting with client',
-        complete: true
-    },
-    {
-        id: 2,
-        description: 'Go to bank',
-        complete: true
-    },
-    {
-        id: 3,
-        description: 'Go to the zoo',
-        complete: false
-    }
-];
+var todoNextId = 1;
+var todos = [];
+
+app.use(bodyParser.json());
 
 app.get('/todos', function (req, res) {
     res.json(todos);
 });
+
 app.get('/todos/:id', function (req, res) {
     var todoId = parseInt(req.params.id, 10);
     console.log(todoId);
-    var matchTodo = _.find(todos,{id: todoId});
+    var matchTodo = _.find(todos, {id: todoId});
 
     if (matchTodo) {
         res.json(matchTodo);
@@ -44,6 +33,14 @@ app.get('/todos/:id', function (req, res) {
 
 app.get('/', function (req, res) {
     res.send('TO DO API');
+});
+
+app.post('/todos', function (req, res) {
+    var body = req.body;
+    console.log('description', body.description);
+    body.id = todoNextId++;
+    todos.push(body);
+    res.json(body);
 });
 
 app.listen(PORT, function () {
