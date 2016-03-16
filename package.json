@@ -12,6 +12,9 @@
     "body-parser": "^1.13.3",
     "express": "^4.13.3",
     "lodash": "^4.6.1",
+    "mongoose": "^4.4.7",
+    "sequelize": "^3.5.1",
+    "sqlite": "3.0.10",
     "underscore": "^1.8.3"
   }
 }
