@@ -9,41 +9,45 @@ var bodyParser = require('body-parser');
 var PORT = process.env.PORT || 3000;
 var td = require('./models/todo');
 var todoNextId = 1;
-
+var logger = require('./logger/logger');
 
 var Todo = require('./models/todo');
+
+logger.debug("Overriding 'Express' logger");
+app.use(require('morgan')({"stream": logger.stream}));
 app.use(bodyParser.json());
+
 
 app.get('/todos', function (req, res) {
     var queryParams = req.query;
     var filteredTodos = [];
-    Todo.find({}, function(err, result){
-       if(err){
-           return res.status(500).send();
-       }
-        else{
-           filteredTodos = result;
-           console.log(filteredTodos);
-           if (queryParams.hasOwnProperty('completed') && queryParams.completed === 'true') {
-               filteredTodos = _.where(filteredTodos, {completed: true})
-           }
-           else if (queryParams.hasOwnProperty('completed') && queryParams.completed === 'false') {
-               filteredTodos = _.where(filteredTodos, {completed: false})
-           }
+    Todo.find({}, function (err, result) {
+        if (err) {
+            return res.status(500).send();
+        }
+        else {
+            filteredTodos = result;
+            console.log(filteredTodos);
+            if (queryParams.hasOwnProperty('completed') && queryParams.completed === 'true') {
+                filteredTodos = _.where(filteredTodos, {completed: true})
+            }
+            else if (queryParams.hasOwnProperty('completed') && queryParams.completed === 'false') {
+                filteredTodos = _.where(filteredTodos, {completed: false})
+            }
 
-           if (queryParams.hasOwnProperty('q') && queryParams.q.length > 0) {
-               filteredTodos = _.filter(filteredTodos, function (todo) {
-                   return todo.description.toLowerCase().indexOf(queryParams.q.toLowerCase()) > -1;
-               });
-           }
-           console.log(filteredTodos);
-           console.log(filteredTodos.length);
-           var data ={
-               data: filteredTodos,
-               count:filteredTodos.length
-           }
-           res.json(data);
-       }
+            if (queryParams.hasOwnProperty('q') && queryParams.q.length > 0) {
+                filteredTodos = _.filter(filteredTodos, function (todo) {
+                    return todo.description.toLowerCase().indexOf(queryParams.q.toLowerCase()) > -1;
+                });
+            }
+            console.log(filteredTodos);
+            console.log(filteredTodos.length);
+            var data = {
+                data: filteredTodos,
+                count: filteredTodos.length
+            }
+            res.json(data);
+        }
     });
 
 
@@ -52,13 +56,13 @@ app.get('/todos', function (req, res) {
 app.get('/todos/:id', function (req, res) {
     var todoId = req.params.id;
     console.log(todoId);
-    Todo.findById(todoId, function(err, result){
-       if(err){
-           res.status(404).send();
-       }
-        else{
-           res.json(result);
-       }
+    Todo.findById(todoId, function (err, result) {
+        if (err) {
+            res.status(404).send();
+        }
+        else {
+            res.json(result);
+        }
     });
 
 });
@@ -91,23 +95,34 @@ app.post('/todos', function (req, res) {
 });
 
 app.delete('/todos/:id', function (req, res) {
-    var todoId = parseInt(req.params.id, 10);
-    console.log(todoId);
-    var matchTodo = _.findWhere(todos, {id: todoId});
-    if (!matchTodo) {
-        return res.status(404).json({"error": "item not existed"});
-    }
-    todos = _.without(todos, matchTodo);
-    res.json(matchTodo);
+    Todo.findById(req.params.id, function (err, todo) {
+        if (err) {
+            return res.status(400).send();
+        }
+        else {
+            
+            todo.remove(function(err){
+                if(err){
+                    return res.status(500).send();
+                }
+                else{
+                   res.json({'message': 'item was removed'})
+                }
+            })
+
+        }
+    });
 
 
 });
 
 app.put('/todos/:id', function (req, res) {
 
+    console.log(req.params.id);
     var body = _.pick(req.body, 'description', 'completed');
+    console.log(body);
     var attributes = {};
-    var todoId = parseInt(req.params.id, 10);
+    //req.params.id
 
     if (body.hasOwnProperty('completed')) {
         attributes.completed = body.completed;
@@ -119,6 +134,27 @@ app.put('/todos/:id', function (req, res) {
     if (body.hasOwnProperty('description')) {
         attributes.description = body.description;
     }
+
+    Todo.findById(req.params.id, function (err, todo) {
+        if (err) {
+            return res.status(400).send();
+        }
+        else {
+            console.log(todo);
+            todo.description = attributes.description;
+            todo.completed = attributes.completed;
+
+            todo.save(function(err){
+                if(err){
+                    return res.status(500).send();
+                }
+                else{
+                    res.json(todo);
+                }
+            })
+
+        }
+    });
 });
 
 app.listen(PORT, function () {
