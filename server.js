@@ -11,7 +11,7 @@ var todoNextId = 1;
 var logger = require('./logger/logger');
 var Todo = require('./models/todo');
 var User = require('./models/user');
-
+var encrypt = require('./utils/encryptPassword');
 logger.debug("Overriding 'Express' logger");
 app.use(require('morgan')({"stream": logger.stream}));
 app.use(bodyParser.json());
