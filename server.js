@@ -7,11 +7,10 @@ var app = express();
 var _ = require('underscore');
 var bodyParser = require('body-parser');
 var PORT = process.env.PORT || 3000;
-var td = require('./models/todo');
 var todoNextId = 1;
 var logger = require('./logger/logger');
-
 var Todo = require('./models/todo');
+var User = require('./models/user');
 
 logger.debug("Overriding 'Express' logger");
 app.use(require('morgan')({"stream": logger.stream}));
@@ -156,6 +155,43 @@ app.put('/todos/:id', function (req, res) {
         }
     });
 });
+
+/**
+ * create user
+ */
+app.post('/user', function (req, res) {
+    var body = _.pick(req.body, 'email', 'password');
+    if ( !_.isString(body.email) || !body.email.trim().length || !_.isString(body.password) || !body.password.trim().length) {
+        return res.status(400).send();
+    }
+
+    console.log(body);
+    User.create({
+        email: body.email,
+        password: encrypt(body.password)
+    }, function (err, user) {
+        if (err) {
+            return res.status(400).json(err);
+        }
+        else {
+
+            return res.json( _.pick(user, '_id', 'email','dateCreated'));
+        }
+    });
+
+
+});
+
+app.post('/user/login', function(req, res){
+    var body = _.pick(req.body, 'email', 'password');
+    User.authenticate(body).then(function(user){
+        res.json(_.pick(user,'_id', 'email', 'dateCreated'));
+    },function(err){
+        res.status(401).send();
+    });
+});
+
+
 
 app.listen(PORT, function () {
     console.log('Express is running on ' + PORT);
