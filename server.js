@@ -10,17 +10,19 @@ var PORT = process.env.PORT || 3000;
 var todoNextId = 1;
 var logger = require('./logger/logger');
 var Todo = require('./models/todo');
-var User = require('./models/user');
 var encrypt = require('./utils/encryptPassword');
 logger.debug("Overriding 'Express' logger");
+var mongoose = require('mongoose');
+var User = require('./models/user');
+var middleware = require('./middleware')(User);
 app.use(require('morgan')({"stream": logger.stream}));
 app.use(bodyParser.json());
 
 
-app.get('/todos', function (req, res) {
+app.get('/todos', middleware.requireAuthentication, function (req, res) {
     var queryParams = req.query;
     var filteredTodos = [];
-    Todo.find({}, function (err, result) {
+    Todo.find({user: req.user._id}, function (err, result) {
         if (err) {
             return res.status(500).send();
         }
@@ -52,12 +54,13 @@ app.get('/todos', function (req, res) {
 
 });
 
-app.get('/todos/:id', function (req, res) {
+app.get('/todos/:id', middleware.requireAuthentication, function (req, res) {
     var todoId = req.params.id;
     console.log(todoId);
     Todo.findById(todoId, function (err, result) {
+
         if (err) {
-            res.status(404).send();
+            res.status(401).send();
         }
         else {
             res.json(result);
@@ -70,7 +73,7 @@ app.get('/', function (req, res) {
     res.send('TO DO API');
 });
 
-app.post('/todos', function (req, res) {
+app.post('/todos', middleware.requireAuthentication, function (req, res) {
     var body = _.pick(req.body, 'description', 'completed');
     if (!_.isBoolean(body.completed) || !_.isString(body.description) || !body.description.trim().length) {
         return res.status(400).send();
@@ -78,9 +81,11 @@ app.post('/todos', function (req, res) {
 
     body.description = body.description.trim();
     console.log(body);
+
     Todo.create({
         description: body.description,
-        completed: body.completed
+        completed: body.completed,
+        user:mongoose.mongo.ObjectId(req.user._id)
     }, function (err, todo) {
         if (err) {
             return res.status(500).send();
@@ -93,19 +98,19 @@ app.post('/todos', function (req, res) {
 
 });
 
-app.delete('/todos/:id', function (req, res) {
+app.delete('/todos/:id', middleware.requireAuthentication, function (req, res) {
     Todo.findById(req.params.id, function (err, todo) {
         if (err) {
             return res.status(400).send();
         }
         else {
-            
-            todo.remove(function(err){
-                if(err){
+
+            todo.remove(function (err) {
+                if (err) {
                     return res.status(500).send();
                 }
-                else{
-                   res.json({'message': 'item was removed'})
+                else {
+                    res.json({'message': 'item was removed'})
                 }
             })
 
@@ -115,7 +120,7 @@ app.delete('/todos/:id', function (req, res) {
 
 });
 
-app.put('/todos/:id', function (req, res) {
+app.put('/todos/:id', middleware.requireAuthentication, function (req, res) {
 
     console.log(req.params.id);
     var body = _.pick(req.body, 'description', 'completed');
@@ -143,11 +148,11 @@ app.put('/todos/:id', function (req, res) {
             todo.description = attributes.description;
             todo.completed = attributes.completed;
 
-            todo.save(function(err){
-                if(err){
+            todo.save(function (err) {
+                if (err) {
                     return res.status(500).send();
                 }
-                else{
+                else {
                     res.json(todo);
                 }
             })
@@ -161,7 +166,7 @@ app.put('/todos/:id', function (req, res) {
  */
 app.post('/user', function (req, res) {
     var body = _.pick(req.body, 'email', 'password');
-    if ( !_.isString(body.email) || !body.email.trim().length || !_.isString(body.password) || !body.password.trim().length) {
+    if (!_.isString(body.email) || !body.email.trim().length || !_.isString(body.password) || !body.password.trim().length) {
         return res.status(400).send();
     }
 
@@ -175,22 +180,24 @@ app.post('/user', function (req, res) {
         }
         else {
 
-            return res.json( _.pick(user, '_id', 'email','dateCreated'));
+            return res.json(_.pick(user, '_id', 'email', 'dateCreated'));
         }
     });
 
 
 });
 
-app.post('/user/login', function(req, res){
+app.post('/user/login', function (req, res) {
     var body = _.pick(req.body, 'email', 'password');
-    User.authenticate(body).then(function(user){
-        res.json(_.pick(user,'_id', 'email', 'dateCreated'));
-    },function(err){
+    var User = mongoose.model('User', User);
+    var user = new User();
+    user.authenticate(body).then(function (u) {
+
+        res.header('Auth', user.generateToken('authentication', _.pick(u, '_id')._id)).json(_.pick(u, '_id', 'email', 'dateCreated'));
+    }, function (err) {
         res.status(401).send();
     });
 });
-
 
 
 app.listen(PORT, function () {
